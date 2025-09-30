@@ -22,22 +22,36 @@ pub struct Position {
 impl TComponent for Position {} // Necessary to be recognized as a valid component
 
 fn main() -> () {
-    let mut scene: Scene = Scene::new();
+    let scene_rc = Scene::new();
 
-    scene.add_system(BehaviourSystem::new());
+    scene_rc.borrow_mut().add_system(BehaviourSystem::new());
 
-    let weak: Weak<RefCell<Entity>> = scene.create_entity();
+    let rc = scene_rc.borrow_mut().create_entity(&scene_rc);
 
-    if let Option::Some(rc) = weak.upgrade() {
-        if let Result::Ok(mut entity) = rc.try_borrow_mut() {
-            let mut coll: ComponentCollection<Position> = ComponentCollection::new();
+    if let Result::Ok(mut entity) = rc.try_borrow_mut() {
+        let mut coll: ComponentCollection<Position> = ComponentCollection::new();
 
-            coll.add(Position { x: 0.0, y: 0.0 });
+        coll.add(Position { x: 0.0, y: 0.0 });
 
-            assert!(!coll.get_entity().is_some());
+        assert!(!coll.get_entity().is_some());
 
-            entity.add_component::<ComponentCollection<Position>>(coll);
-        }
+        assert!(
+            entity
+                .add_component::<ComponentCollection<Position>>(coll)
+                .is_some()
+        );
+
+        entity.add_component(Position { x: 80.0, y: 63.1 });
+
+        assert!(
+            entity
+                .use_component(|coll: &mut ComponentCollection<Position>| {
+                    coll.add(Position { x: 5.3, y: 23.8 });
+
+                    assert_eq!(coll.size(), 2);
+                })
+                .is_some()
+        );
     }
 }
 ```
