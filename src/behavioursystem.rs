@@ -6,57 +6,65 @@ use crate::{
 };
 
 pub struct BehaviourSystem {
-    components: Vec<Rc<RefCell<dyn TComponent>>>,
+    components: RefCell<Vec<Rc<RefCell<dyn TComponent>>>>,
 }
 
 impl BehaviourSystem {
     pub fn new() -> Self {
         return Self {
-            components: Vec::new(),
+            components: RefCell::new(Vec::new()),
         };
     }
 
     pub fn reserve(&mut self, size: usize) -> () {
-        self.components.reserve(size);
+        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+            components.reserve(size);
+        }
     }
 }
 
 impl TSystem for BehaviourSystem {
-    fn get_drawable(&mut self) -> Option<&mut dyn TDrawSystem>
+    fn get_drawable(&self) -> Option<&dyn TDrawSystem>
     where
         Self: Sized,
     {
         return Option::Some(self);
     }
 
-    fn get_updatable(&mut self) -> Option<&mut dyn TUpdateSystem>
+    fn get_updatable(&self) -> Option<&dyn TUpdateSystem>
     where
         Self: Sized,
     {
         return Option::Some(self);
     }
 
-    fn on_component_added_to_entity(&mut self, component: &Rc<RefCell<dyn TComponent>>) -> () {
+    fn on_component_added_to_entity(&self, component: &Rc<RefCell<dyn TComponent>>) -> () {
         if let Result::Ok(mut borrowed) = component.try_borrow_mut() {
             if let Option::Some(_) = borrowed.as_behaviour() {
-                self.components.push(component.clone());
+                if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+                    components.push(component.clone());
+                }
             }
         }
     }
 
-    fn on_component_removed_from_entity(&mut self, component: &Rc<RefCell<dyn TComponent>>) -> () {
-        self.components.retain(|c| -> bool {
-            return !Rc::ptr_eq(c, &component);
-        });
+    fn on_component_removed_from_entity(&self, component: &Rc<RefCell<dyn TComponent>>) -> () {
+        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+            components.retain(|c| -> bool {
+                return !Rc::ptr_eq(c, &component);
+            });
+        }
     }
 }
 
 impl TDrawSystem for BehaviourSystem {
-    fn draw(&mut self) -> () {
-        for c in &self.components {
-            if let Result::Ok(mut comp) = c.try_borrow_mut() {
-                if let Option::Some(bc) = comp.as_behaviour() {
-                    bc.draw();
+    fn draw(&self) -> () {
+        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+            for c in components.iter_mut() {
+                if let Result::Ok(mut comp) = c.try_borrow_mut() {
+                    if let Option::Some(bc) = comp.as_behaviour() {
+                        bc.draw();
+                    }
                 }
             }
         }
@@ -64,11 +72,13 @@ impl TDrawSystem for BehaviourSystem {
 }
 
 impl TUpdateSystem for BehaviourSystem {
-    fn update(&mut self) -> () {
-        for c in &self.components {
-            if let Result::Ok(mut comp) = c.try_borrow_mut() {
-                if let Option::Some(bc) = comp.as_behaviour() {
-                    bc.update();
+    fn update(&self) -> () {
+        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+            for c in components.iter_mut() {
+                if let Result::Ok(mut comp) = c.try_borrow_mut() {
+                    if let Option::Some(bc) = comp.as_behaviour() {
+                        bc.update();
+                    }
                 }
             }
         }

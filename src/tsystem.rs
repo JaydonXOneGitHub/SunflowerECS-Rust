@@ -4,7 +4,7 @@ use crate::{tcomponent::TComponent, tdrawsystem::TDrawSystem, tupdatesystem::TUp
 
 pub trait TSystem: 'static {
     /// The method to call for an instance of [`TDrawSystem`].
-    fn get_drawable(&mut self) -> Option<&mut dyn TDrawSystem>
+    fn get_drawable(&self) -> Option<&dyn TDrawSystem>
 // where
     //     Self: Sized,
     {
@@ -12,14 +12,15 @@ pub trait TSystem: 'static {
     }
 
     /// The method to call for an instance of [`TUpdateSystem`].
-    fn get_updatable(&mut self) -> Option<&mut dyn TUpdateSystem>
+    fn get_updatable(&self) -> Option<&dyn TUpdateSystem>
 // where
     //     Self: Sized,
     {
         return Option::None;
     }
 
-    fn on_component_added_to_entity(&mut self, _component: &Rc<RefCell<dyn TComponent>>) -> () {}
-    fn on_component_removed_from_entity(&mut self, _component: &Rc<RefCell<dyn TComponent>>) -> () {
-    }
+    /// The hook for when an applied [`Entity`] adds a component.
+    fn on_component_added_to_entity(&self, _component: &Rc<RefCell<dyn TComponent>>) -> () {}
+    /// The hook for when an applied [`Entity`] removes a component.
+    fn on_component_removed_from_entity(&self, _component: &Rc<RefCell<dyn TComponent>>) -> () {}
 }

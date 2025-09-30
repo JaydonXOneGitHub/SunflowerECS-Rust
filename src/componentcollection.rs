@@ -29,6 +29,10 @@ impl<T: TComponent> ComponentCollection<T> {
         return self.components.get(index);
     }
 
+    pub fn size(&self) -> usize {
+        return self.components.len();
+    }
+
     pub fn behaviour_iterate<F>(&mut self, callback: F)
     where
         F: Fn(&mut dyn TBehaviourComponent),

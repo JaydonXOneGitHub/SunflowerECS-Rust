@@ -1,110 +1,69 @@
 use crate::{entitydata::EntityData, scene::Scene, tcomponent::TComponent};
-use std::{any::TypeId, cell::RefCell, rc::Rc};
+use std::{
+    any::type_name,
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 /// The container for many [`TComponent`] or [`TBehaviourComponent`] instances.
 pub struct Entity {
     pub(crate) id: i64,
-    pub(crate) scene: *mut Scene,
+    pub(crate) scene: Option<Weak<RefCell<Scene>>>,
+    pub(crate) entity_data: Option<EntityData>,
 }
 
 impl Entity {
-    pub fn get_scene(&mut self) -> Option<&mut Scene> {
-        unsafe {
-            return self.scene.as_mut();
-        }
-    }
-
     pub fn get_id(&self) -> i64 {
         return self.id;
     }
 
     pub fn is_valid(&self) -> bool {
-        return !self.scene.is_null();
+        return self.scene.is_some() || self.entity_data.is_some();
+    }
+
+    pub fn get_scene(&self) -> Option<Rc<RefCell<Scene>>> {
+        return match &self.scene {
+            Option::Some(weak) => weak.upgrade(),
+            Option::None => Option::None,
+        };
     }
 
     pub fn destroy(&mut self) -> () {
-        let scene_ptr = self.scene; // copy raw pointer (no borrow)
-
-        if let Option::Some(scene) = unsafe { scene_ptr.as_mut() } {
-            scene.destroy_entity(self);
-        }
-    }
-
-    /// Checks whether or not the entity is active within the [`Scene`].
-    pub fn is_active(&self) -> bool {
-        let scene_ptr = self.scene; // copy raw pointer (no borrow)
-
-        if let Option::Some(scene) = unsafe { scene_ptr.as_mut() } {
-            if let Option::Some(option) = scene.get_entity_data().get(&self.id) {
-                if let Option::Some(data) = option {
-                    return data.active;
-                }
+        if let Option::Some(scene_rc) = self.get_scene() {
+            if let Result::Ok(mut scene) = scene_rc.try_borrow_mut() {
+                scene.destroy_entity(self);
             }
         }
-
-        return false;
     }
 
     /// The method to call when you want to add a component.
-    pub fn add_component<T: TComponent>(&mut self, component: T) -> () {
-        let scene_ptr = self.scene;
+    pub fn add_component<T>(&mut self, component: T) -> Option<()>
+    where
+        T: TComponent + 'static,
+    {
+        let e_ptr = self as *mut Entity;
 
-        if let Option::Some(scene) = unsafe { scene_ptr.as_mut() } {
-            let o1: Option<&mut Option<EntityData>> = scene.get_entity_data().get_mut(&self.id);
+        if let Option::Some(scene_rc) = self.get_scene() {
+            if let Result::Ok(scene) = scene_rc.try_borrow() {
+                let type_id: &'static str = type_name::<T>();
 
-            if let Option::Some(o2) = o1 {
-                let o3: Option<&mut EntityData> = o2.as_mut();
+                if let Option::Some(data) = self.entity_data.as_mut() {
+                    let componentrc = Rc::new(RefCell::new(component));
 
-                if let Option::Some(data) = o3 {
-                    let type_id: TypeId = TypeId::of::<T>();
-
-                    if !data.components.contains_key(&type_id) {
-                        // I can trust that this is safe, as
-                        // scene can be accessed around here.
-                        let iscene = unsafe { scene_ptr.as_mut().unwrap() };
-
-                        let componentrc = Rc::new(RefCell::new(component));
-
+                    if data
+                        .components
+                        .insert(type_id, componentrc.clone())
+                        .is_none()
+                    {
                         let dyncomponentrc: Rc<RefCell<dyn TComponent>> = componentrc.clone();
 
                         if let Result::Ok(mut borrowed) = dyncomponentrc.try_borrow_mut() {
                             if let Option::Some(bc) = borrowed.as_behaviour() {
-                                bc.set_entity(self as *mut Entity);
+                                bc.set_entity(e_ptr);
                             }
                         }
 
-                        iscene.on_component_added_to_entity(&dyncomponentrc);
-
-                        data.components.insert(type_id, componentrc);
-                    }
-                }
-            }
-        }
-    }
-
-    /// Removes the desired component of type T.
-    pub fn remove_component<T: TComponent>(&mut self) -> Option<()> {
-        let scene_ptr = self.scene;
-
-        if let Option::Some(scene) = unsafe { scene_ptr.as_mut() } {
-            let o1: Option<&mut Option<EntityData>> = scene.get_entity_data().get_mut(&self.id);
-
-            if let Option::Some(o2) = o1 {
-                let o3: Option<&mut EntityData> = o2.as_mut();
-
-                if let Option::Some(data) = o3 {
-                    let type_id: TypeId = TypeId::of::<T>();
-
-                    if let Option::Some(component) = data.components.remove(&type_id) {
-                        let iscene = unsafe { scene_ptr.as_mut().unwrap() };
-
-                        if let Result::Ok(mut borrowed) = component.try_borrow_mut() {
-                            if let Option::Some(bc) = borrowed.as_behaviour() {
-                                bc.set_entity(std::ptr::null_mut());
-                            }
-                        }
-
-                        iscene.on_component_removed_from_entity(&component);
+                        scene.on_component_added_to_entity(&dyncomponentrc);
 
                         return Option::Some(());
                     }
@@ -115,21 +74,58 @@ impl Entity {
         return Option::None;
     }
 
+    /// Removes the desired component of type T.
+    pub fn remove_component<T>(&mut self) -> Option<()>
+    where
+        T: TComponent + 'static,
+    {
+        if let Option::Some(scene_rc) = self.get_scene() {
+            if let Result::Ok(scene) = scene_rc.try_borrow() {
+                let type_id: &'static str = type_name::<T>();
+
+                if let Option::Some(data) = self.entity_data.as_mut() {
+                    if let Option::Some(component) = data.components.remove(type_id) {
+                        if let Result::Ok(mut borrowed) = component.try_borrow_mut() {
+                            if let Option::Some(bc) = borrowed.as_behaviour() {
+                                bc.set_entity(std::ptr::null_mut());
+                            }
+                        }
+
+                        scene.on_component_removed_from_entity(&component);
+
+                        return Option::Some(());
+                    }
+                }
+            }
+        }
+
+        return Option::None;
+    }
+
+    pub(crate) fn reset(&mut self) -> () {
+        self.entity_data = Option::None;
+    }
+
     /// Allows you to recieve temporary access to a component.
     pub fn use_component<T, F, R>(&mut self, f: F) -> Option<R>
     where
         T: TComponent + 'static,
         F: Fn(&mut T) -> R,
     {
-        let scene_ptr = self.scene;
+        let type_id: &'static str = type_name::<T>();
 
-        let scene = unsafe { scene_ptr.as_mut()? };
+        if let Option::Some(data) = self.entity_data.as_mut() {
+            if let Option::Some(rc) = data.components.get(type_id) {
+                if let Option::Some(mut borrow) = rc.try_borrow_mut().ok() {
+                    let any_ref: &mut dyn std::any::Any = &mut *borrow;
 
-        let data = scene.get_entity_data().get(&self.id)?.as_ref()?;
-        let rc = data.components.get(&TypeId::of::<T>())?;
-        let mut borrow = rc.try_borrow_mut().ok()?;
-        let any_ref: &mut dyn std::any::Any = &mut *borrow;
-        let t = any_ref.downcast_mut::<T>()?;
-        return Option::Some(f(t));
+                    if let Option::Some(t) = any_ref.downcast_mut::<T>() {
+                        return Option::Some(f(t));
+                    }
+                }
+            }
+        }
+
+        return Option::None;
     }
 }

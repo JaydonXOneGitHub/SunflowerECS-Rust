@@ -8,5 +8,5 @@ pub trait TDrawSystem: TSystem {
         return Option::Some(self);
     }
 
-    fn draw(&mut self) -> () {}
+    fn draw(&self) -> () {}
 }

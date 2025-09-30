@@ -8,5 +8,5 @@ pub trait TUpdateSystem: TSystem {
         return Option::None;
     }
 
-    fn update(&mut self) -> () {}
+    fn update(&self) -> () {}
 }
