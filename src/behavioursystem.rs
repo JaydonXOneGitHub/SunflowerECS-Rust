@@ -1,4 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
+
+use boxmut::boxmut::BoxMut;
 
 use crate::{
     tcomponent::TComponent, tdrawsystem::TDrawSystem, tsystem::TSystem,
@@ -6,18 +8,18 @@ use crate::{
 };
 
 pub struct BehaviourSystem {
-    components: RefCell<Vec<Rc<RefCell<dyn TComponent>>>>,
+    components: BoxMut<Vec<Rc<BoxMut<Box<dyn TComponent>>>>>,
 }
 
 impl BehaviourSystem {
     pub fn new() -> Self {
         return Self {
-            components: RefCell::new(Vec::new()),
+            components: BoxMut::new(Vec::new()).unwrap(),
         };
     }
 
     pub fn reserve(&mut self, size: usize) -> () {
-        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+        if let Option::Some(components) = self.components.get_mut() {
             components.reserve(size);
         }
     }
@@ -38,18 +40,18 @@ impl TSystem for BehaviourSystem {
         return Option::Some(self);
     }
 
-    fn on_component_added_to_entity(&self, component: &Rc<RefCell<dyn TComponent>>) -> () {
-        if let Result::Ok(mut borrowed) = component.try_borrow_mut() {
+    fn on_component_added_to_entity(&self, component: &Rc<BoxMut<Box<dyn TComponent>>>) -> () {
+        if let Option::Some(borrowed) = component.get_mut() {
             if let Option::Some(_) = borrowed.as_behaviour() {
-                if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+                if let Option::Some(components) = self.components.get_mut() {
                     components.push(component.clone());
                 }
             }
         }
     }
 
-    fn on_component_removed_from_entity(&self, component: &Rc<RefCell<dyn TComponent>>) -> () {
-        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+    fn on_component_removed_from_entity(&self, component: &Rc<BoxMut<Box<dyn TComponent>>>) -> () {
+        if let Option::Some(components) = self.components.get_mut() {
             components.retain(|c| -> bool {
                 return !Rc::ptr_eq(c, &component);
             });
@@ -59,9 +61,9 @@ impl TSystem for BehaviourSystem {
 
 impl TDrawSystem for BehaviourSystem {
     fn draw(&self) -> () {
-        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+        if let Option::Some(components) = self.components.get_mut() {
             for c in components.iter_mut() {
-                if let Result::Ok(mut comp) = c.try_borrow_mut() {
+                if let Option::Some(comp) = c.get_mut() {
                     if let Option::Some(bc) = comp.as_behaviour() {
                         bc.draw();
                     }
@@ -73,9 +75,9 @@ impl TDrawSystem for BehaviourSystem {
 
 impl TUpdateSystem for BehaviourSystem {
     fn update(&self) -> () {
-        if let Result::Ok(mut components) = self.components.try_borrow_mut() {
+        if let Option::Some(components) = self.components.get_mut() {
             for c in components.iter_mut() {
-                if let Result::Ok(mut comp) = c.try_borrow_mut() {
+                if let Option::Some(comp) = c.get_mut() {
                     if let Option::Some(bc) = comp.as_behaviour() {
                         bc.update();
                     }

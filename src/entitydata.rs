@@ -1,9 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
+
+use boxmut::boxmut::BoxMut;
 
 use crate::tcomponent::TComponent;
 
 pub struct EntityData {
-    pub(crate) components: HashMap<&'static str, Rc<RefCell<dyn TComponent>>>,
+    pub(crate) components: HashMap<&'static str, Rc<BoxMut<Box<dyn TComponent>>>>,
 }
 
 impl EntityData {

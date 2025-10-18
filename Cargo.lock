@@ -3,5 +3,14 @@
 version = 4
 
 [[package]]
+name = "boxmut"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "992035247506a57b2a56d9f48c43130e7326df4a233f27080a7b3d29d27a926f"
+
+[[package]]
 name = "sunflowerecs"
-version = "1.0.1"
+version = "2.0.0"
+dependencies = [
+ "boxmut",
+]

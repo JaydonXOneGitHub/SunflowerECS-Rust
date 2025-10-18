@@ -1,4 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
+
+use boxmut::boxmut::BoxMut;
 
 use crate::{tcomponent::TComponent, tdrawsystem::TDrawSystem, tupdatesystem::TUpdateSystem};
 
@@ -20,7 +22,8 @@ pub trait TSystem: 'static {
     }
 
     /// The hook for when an applied [`Entity`] adds a component.
-    fn on_component_added_to_entity(&self, _component: &Rc<RefCell<dyn TComponent>>) -> () {}
+    fn on_component_added_to_entity(&self, _component: &Rc<BoxMut<Box<dyn TComponent>>>) -> () {}
     /// The hook for when an applied [`Entity`] removes a component.
-    fn on_component_removed_from_entity(&self, _component: &Rc<RefCell<dyn TComponent>>) -> () {}
+    fn on_component_removed_from_entity(&self, _component: &Rc<BoxMut<Box<dyn TComponent>>>) -> () {
+    }
 }

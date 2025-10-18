@@ -1,4 +1,6 @@
-use std::{any::type_name, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{any::type_name, collections::HashMap, rc::Rc};
+
+use boxmut::boxmut::BoxMut;
 
 use crate::{
     behavioursystem::BehaviourSystem, entity::Entity, entitydata::EntityData,
@@ -7,33 +9,39 @@ use crate::{
 
 /// The struct which controls [`Entity`] and [`TSystem`] instances.
 pub struct Scene {
-    entity_objects: HashMap<i64, Rc<RefCell<Entity>>>,
+    entity_objects: HashMap<i64, Rc<BoxMut<Entity>>>,
     systems: HashMap<&'static str, Box<dyn TSystem>>,
     id_count: i64,
 }
 
 impl Scene {
-    pub fn new() -> Rc<RefCell<Self>> {
-        return Rc::new(RefCell::new(Self {
-            entity_objects: HashMap::new(),
-            systems: HashMap::new(),
-            id_count: 0,
-        }));
+    pub fn new() -> Rc<BoxMut<Self>> {
+        return Rc::new(
+            BoxMut::new(Self {
+                entity_objects: HashMap::new(),
+                systems: HashMap::new(),
+                id_count: 0,
+            })
+            .unwrap(),
+        );
     }
 }
 
 impl Scene {
     /// Creates a new [`Entity`] instance and binds it.
-    pub fn create_entity(&mut self, scene_rc: &Rc<RefCell<Scene>>) -> Rc<RefCell<Entity>> {
+    pub fn create_entity(&mut self, scene_rc: &Rc<BoxMut<Scene>>) -> Rc<BoxMut<Entity>> {
         let id: i64 = self.id_count;
 
         self.entity_objects.insert(
             self.id_count,
-            Rc::new(RefCell::new(Entity {
-                id: id,
-                scene: Option::Some(Rc::downgrade(scene_rc)),
-                entity_data: Option::Some(EntityData::new()),
-            })),
+            Rc::new(
+                BoxMut::new(Entity {
+                    id: id,
+                    scene: Option::Some(Rc::downgrade(scene_rc)),
+                    entity_data: Option::Some(EntityData::new()),
+                })
+                .unwrap(),
+            ),
         );
 
         let entity = self.entity_objects.get_mut(&id).unwrap();
@@ -85,7 +93,7 @@ impl Scene {
 
     pub(crate) fn on_component_added_to_entity(
         &self,
-        component: &Rc<RefCell<dyn TComponent>>,
+        component: &Rc<BoxMut<Box<dyn TComponent>>>,
     ) -> () {
         for sys in self.systems.values() {
             sys.on_component_added_to_entity(component);
@@ -94,7 +102,7 @@ impl Scene {
 
     pub(crate) fn on_component_removed_from_entity(
         &self,
-        component: &Rc<RefCell<dyn TComponent>>,
+        component: &Rc<BoxMut<Box<dyn TComponent>>>,
     ) -> () {
         for sys in self.systems.values() {
             sys.on_component_removed_from_entity(component);

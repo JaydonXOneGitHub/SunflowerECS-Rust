@@ -1,14 +1,15 @@
+use boxmut::boxmut::BoxMut;
+
 use crate::{entitydata::EntityData, scene::Scene, tcomponent::TComponent};
 use std::{
     any::type_name,
-    cell::RefCell,
     rc::{Rc, Weak},
 };
 
 /// The container for many [`TComponent`] or [`TBehaviourComponent`] instances.
 pub struct Entity {
     pub(crate) id: i64,
-    pub(crate) scene: Option<Weak<RefCell<Scene>>>,
+    pub(crate) scene: Option<Weak<BoxMut<Scene>>>,
     pub(crate) entity_data: Option<EntityData>,
 }
 
@@ -21,7 +22,7 @@ impl Entity {
         return self.scene.is_some() || self.entity_data.is_some();
     }
 
-    pub fn get_scene(&self) -> Option<Rc<RefCell<Scene>>> {
+    pub fn get_scene(&self) -> Option<Rc<BoxMut<Scene>>> {
         return match &self.scene {
             Option::Some(weak) => weak.upgrade(),
             Option::None => Option::None,
@@ -30,7 +31,7 @@ impl Entity {
 
     pub fn destroy(&mut self) -> () {
         if let Option::Some(scene_rc) = self.get_scene() {
-            if let Result::Ok(mut scene) = scene_rc.try_borrow_mut() {
+            if let Option::Some(scene) = scene_rc.get_mut() {
                 scene.destroy_entity(self);
             }
         }
@@ -44,20 +45,21 @@ impl Entity {
         let e_ptr = self as *mut Entity;
 
         if let Option::Some(scene_rc) = self.get_scene() {
-            if let Result::Ok(scene) = scene_rc.try_borrow() {
+            if let Option::Some(scene) = scene_rc.get_ref() {
                 let type_id: &'static str = type_name::<T>();
 
                 if let Option::Some(data) = self.entity_data.as_mut() {
-                    let componentrc = Rc::new(RefCell::new(component));
+                    let boxed: Box<dyn TComponent> = Box::new(component);
+                    let componentrc = Rc::new(BoxMut::new(boxed).unwrap());
 
                     if data
                         .components
                         .insert(type_id, componentrc.clone())
                         .is_none()
                     {
-                        let dyncomponentrc: Rc<RefCell<dyn TComponent>> = componentrc.clone();
+                        let dyncomponentrc: Rc<BoxMut<Box<dyn TComponent>>> = componentrc.clone();
 
-                        if let Result::Ok(mut borrowed) = dyncomponentrc.try_borrow_mut() {
+                        if let Option::Some(borrowed) = dyncomponentrc.get_mut() {
                             if let Option::Some(bc) = borrowed.as_behaviour() {
                                 bc.set_entity(e_ptr);
                             }
@@ -80,12 +82,12 @@ impl Entity {
         T: TComponent + 'static,
     {
         if let Option::Some(scene_rc) = self.get_scene() {
-            if let Result::Ok(scene) = scene_rc.try_borrow() {
+            if let Option::Some(scene) = scene_rc.get_mut() {
                 let type_id: &'static str = type_name::<T>();
 
                 if let Option::Some(data) = self.entity_data.as_mut() {
                     if let Option::Some(component) = data.components.remove(type_id) {
-                        if let Result::Ok(mut borrowed) = component.try_borrow_mut() {
+                        if let Option::Some(borrowed) = component.get_mut() {
                             if let Option::Some(bc) = borrowed.as_behaviour() {
                                 bc.set_entity(std::ptr::null_mut());
                             }
@@ -116,7 +118,7 @@ impl Entity {
 
         if let Option::Some(data) = self.entity_data.as_mut() {
             if let Option::Some(rc) = data.components.get(type_id) {
-                if let Option::Some(mut borrow) = rc.try_borrow_mut().ok() {
+                if let Option::Some(borrow) = rc.get_mut() {
                     let any_ref: &mut dyn std::any::Any = &mut *borrow;
 
                     if let Option::Some(t) = any_ref.downcast_mut::<T>() {

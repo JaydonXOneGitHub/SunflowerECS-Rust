@@ -14,11 +14,14 @@ impl TComponent for Position {}
 fn iterate_scene() -> () {
     let scene_rc = Scene::new();
 
-    scene_rc.borrow_mut().add_system(BehaviourSystem::new());
+    scene_rc
+        .get_mut()
+        .unwrap()
+        .add_system(BehaviourSystem::new());
 
-    let rc = scene_rc.borrow_mut().create_entity(&scene_rc);
+    let rc = scene_rc.get_mut().unwrap().create_entity(&scene_rc);
 
-    if let Result::Ok(mut entity) = rc.try_borrow_mut() {
+    if let Option::Some(entity) = rc.get_mut() {
         let mut coll: ComponentCollection<Position> = ComponentCollection::new();
 
         coll.add(Position { x: 0.0, y: 0.0 });
