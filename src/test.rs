@@ -35,14 +35,16 @@ fn iterate_scene() -> () {
 
         entity.add_component(Position { x: 80.0, y: 63.1 });
 
-        assert!(
-            entity
-                .use_component(|coll: &mut ComponentCollection<Position>| {
-                    coll.add(Position { x: 5.3, y: 23.8 });
+        let res = entity.use_component(|coll: &mut ComponentCollection<Position>| {
+            coll.add(Position { x: 5.3, y: 23.8 });
 
-                    assert_eq!(coll.size(), 2);
-                })
-                .is_some()
-        );
+            assert_eq!(coll.size(), 2);
+        });
+
+        let confirmed: bool = res.is_ok();
+
+        let str: String = res.err().unwrap_or("".into());
+
+        assert!(confirmed, "{}", str);
     }
 }

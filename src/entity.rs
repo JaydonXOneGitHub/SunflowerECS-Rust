@@ -109,25 +109,31 @@ impl Entity {
     }
 
     /// Allows you to recieve temporary access to a component.
-    pub fn use_component<T, F, R>(&mut self, f: F) -> Option<R>
+    pub fn use_component<T, F, R>(&mut self, f: F) -> Result<R, String>
     where
         T: TComponent + 'static,
         F: Fn(&mut T) -> R,
     {
         let type_id: &'static str = type_name::<T>();
 
-        if let Option::Some(data) = self.entity_data.as_mut() {
+        return if let Option::Some(data) = self.entity_data.as_mut() {
             if let Option::Some(rc) = data.components.get(type_id) {
                 if let Option::Some(borrow) = rc.get_mut() {
-                    let any_ref: &mut dyn std::any::Any = &mut *borrow;
+                    let any_ref: &mut dyn std::any::Any = borrow.as_mut() as &mut dyn std::any::Any;
 
                     if let Option::Some(t) = any_ref.downcast_mut::<T>() {
-                        return Option::Some(f(t));
+                        Result::Ok(f(t))
+                    } else {
+                        Result::Err("Couldn't downcast!".into())
                     }
+                } else {
+                    Result::Err("Couldn't borrow!".into())
                 }
+            } else {
+                Result::Err("Can't get the specified component!".into())
             }
-        }
-
-        return Option::None;
+        } else {
+            Result::Err("Can't get data!".into())
+        };
     }
 }
