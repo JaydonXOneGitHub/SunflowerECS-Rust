@@ -16,14 +16,11 @@ pub struct Scene {
 
 impl Scene {
     pub fn new() -> Rc<BoxMut<Self>> {
-        return Rc::new(
-            BoxMut::new(Self {
-                entity_objects: HashMap::new(),
-                systems: HashMap::new(),
-                id_count: 0,
-            })
-            .unwrap(),
-        );
+        return Rc::new(BoxMut::new(Self {
+            entity_objects: HashMap::new(),
+            systems: HashMap::new(),
+            id_count: 0,
+        }));
     }
 }
 
@@ -34,14 +31,11 @@ impl Scene {
 
         self.entity_objects.insert(
             self.id_count,
-            Rc::new(
-                BoxMut::new(Entity {
-                    id: id,
-                    scene: Option::Some(Rc::downgrade(scene_rc)),
-                    entity_data: Option::Some(EntityData::new()),
-                })
-                .unwrap(),
-            ),
+            Rc::new(BoxMut::new(Entity {
+                id: id,
+                scene: Option::Some(Rc::downgrade(scene_rc)),
+                entity_data: Option::Some(EntityData::new()),
+            })),
         );
 
         let entity = self.entity_objects.get_mut(&id).unwrap();

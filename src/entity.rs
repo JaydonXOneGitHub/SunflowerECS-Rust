@@ -50,7 +50,7 @@ impl Entity {
 
                 if let Option::Some(data) = self.entity_data.as_mut() {
                     let boxed: Box<dyn TComponent> = Box::new(component);
-                    let componentrc = Rc::new(BoxMut::new(boxed).unwrap());
+                    let componentrc = Rc::new(BoxMut::new(boxed));
 
                     if data
                         .components
