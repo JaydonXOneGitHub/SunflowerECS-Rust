@@ -14,7 +14,7 @@ pub struct BehaviourSystem {
 impl BehaviourSystem {
     pub fn new() -> Self {
         return Self {
-            components: BoxMut::new(Vec::new()).unwrap(),
+            components: BoxMut::new(Vec::new()),
         };
     }
 
