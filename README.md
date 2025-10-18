@@ -9,7 +9,7 @@ Install the library, either by using `cargo add sunflowerecs` or by manually cop
 To use:
 
 ```rs
-use crate::{
+use sunflowerecs::{
     behavioursystem::BehaviourSystem, componentcollection::ComponentCollection, scene::Scene,
     tbehaviourcomponent::TBehaviourComponent, tcomponent::TComponent,
 };
@@ -19,16 +19,18 @@ pub struct Position {
     pub y: f64,
 }
 
-impl TComponent for Position {} // Necessary to be recognized as a valid component
+impl TComponent for Position {}
 
-fn main() -> () {
+fn main() {
     let scene_rc = Scene::new();
 
-    scene_rc.borrow_mut().add_system(BehaviourSystem::new());
+    let scene: &mut Scene = scene_rc.get_mut().unwrap();
 
-    let rc = scene_rc.borrow_mut().create_entity(&scene_rc);
+    scene.add_system(BehaviourSystem::new());
 
-    if let Result::Ok(mut entity) = rc.try_borrow_mut() {
+    let rc = scene.create_entity(&scene_rc);
+
+    if let Option::Some(entity) = rc.get_mut() {
         let mut coll: ComponentCollection<Position> = ComponentCollection::new();
 
         coll.add(Position { x: 0.0, y: 0.0 });
@@ -54,4 +56,3 @@ fn main() -> () {
         );
     }
 }
-```
